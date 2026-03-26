@@ -21,7 +21,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-            Cricket Auction 2024
+            EPL Auction 2026
           </CardTitle>
           <CardDescription className="text-gray-400">
             Enter your credentials to access the dashboard
