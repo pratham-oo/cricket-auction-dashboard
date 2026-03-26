@@ -21,7 +21,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-          EPL  AUCTION 2026
+            Cricket Auction 2024
           </CardTitle>
           <CardDescription className="text-gray-400">
             Enter your credentials to access the dashboard
@@ -63,7 +63,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={role === 'admin' ? 'admin' : 'owner1@esssqube.com'}
+                placeholder={role === 'admin' ? 'Enter admin username' : 'Enter team email'}
                 required
               />
             </div>
@@ -75,7 +75,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
+                placeholder="Enter password"
                 required
               />
             </div>
@@ -83,13 +83,6 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
-
-            <div className="text-center text-sm text-gray-400 mt-4 space-y-1">
-              <p className="font-semibold">Demo Credentials:</p>
-              <p>Admin: admin / admin123</p>
-              <p>Owner: owner1@esssqube.com / owner123</p>
-              <p className="text-xs mt-2">(Use any owner email from: owner1@esssqube.com to owner6@esssqube.com)</p>
-            </div>
           </form>
         </CardContent>
       </Card>
