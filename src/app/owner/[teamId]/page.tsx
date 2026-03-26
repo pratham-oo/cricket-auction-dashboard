@@ -46,11 +46,11 @@ export default function OwnerPage() {
     return 9 - teamPlayers.length;
   };
 
+  // FIXED: Use the team's budget directly from the database
   const getRemainingBudget = () => {
     if (!currentTeam) return 0;
-    const spent = teamPlayers.reduce((total, player) => total + (player.sold_price || 0), 0);
-    const remaining = currentTeam.budget - spent;
-    return remaining;
+    // The budget in currentTeam is already updated by the admin
+    return currentTeam.budget;
   };
 
   // Total squad size (Icon + Owner + Auction players)
