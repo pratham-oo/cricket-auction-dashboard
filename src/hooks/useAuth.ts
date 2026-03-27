@@ -23,8 +23,11 @@ export const useAuth = () => {
       setLoading(true);
       
       if (role === 'admin') {
-        // Simple admin check
-        if (email === 'admin' && password === 'admin123') {
+        // ADMIN CREDENTIALS - Change these to your desired credentials
+        const ADMIN_USERNAME = 'admin';
+        const ADMIN_PASSWORD = 'admin123';
+        
+        if (email === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
           const adminUser: User = {
             id: 'admin-1',
             email: 'admin',
