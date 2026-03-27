@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { formatCurrency, getRoleColor, getRoleIcon } from '@/lib/utils';
+import { exportOwnerTeam, exportOwnerBudget } from '@/lib/exportUtils';
 
 export default function OwnerPage() {
   const params = useParams();
@@ -16,12 +17,14 @@ export default function OwnerPage() {
   const {
     players,
     teams,
+    logs,
     loading,
     getTeamById,
     getTeamPlayers,
   } = useAuction();
 
   const [activeTab, setActiveTab] = useState<'squad' | 'auction'>('squad');
+  const [showExportMenu, setShowExportMenu] = useState(false);
   
   const currentTeam = getTeamById(teamId);
   const teamPlayers = getTeamPlayers(teamId);
@@ -58,6 +61,18 @@ export default function OwnerPage() {
     return 2 + teamPlayers.length;
   };
 
+  // Export handlers
+  const handleExport = (type: 'squad' | 'budget') => {
+    if (!currentTeam) return;
+    
+    if (type === 'squad') {
+      exportOwnerTeam(currentTeam, teamPlayers, logs);
+    } else if (type === 'budget') {
+      exportOwnerBudget(currentTeam, teamPlayers);
+    }
+    setShowExportMenu(false);
+  };
+
   // Show loading while checking auth
   if (authLoading || loading) {
     return (
@@ -77,7 +92,7 @@ export default function OwnerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-      {/* Header - Mobile Optimized */}
+      {/* Header - Mobile Optimized with Export Button */}
       <header className="bg-black/50 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
@@ -87,27 +102,55 @@ export default function OwnerPage() {
               </h1>
               <p className="text-gray-400 text-xs md:text-sm">Welcome, {currentTeam?.owner_name}</p>
             </div>
-            <div className="text-right">
-              <div className="text-xs text-gray-400">Available Budget</div>
-              <div className={`text-lg md:text-2xl font-bold ${isOverBudget ? 'text-red-500' : remainingBudget < 100 ? 'text-orange-400' : 'text-green-400'}`}>
-                {formatCurrency(remainingBudget)}
+            <div className="flex gap-2 items-center">
+              <div className="text-right">
+                <div className="text-xs text-gray-400">Available Budget</div>
+                <div className={`text-lg md:text-2xl font-bold ${isOverBudget ? 'text-red-500' : remainingBudget < 100 ? 'text-orange-400' : 'text-green-400'}`}>
+                  {formatCurrency(remainingBudget)}
+                </div>
+                {isOverBudget && (
+                  <p className="text-xs text-red-400">Over by {formatCurrency(Math.abs(remainingBudget))}</p>
+                )}
               </div>
-              {isOverBudget && (
-                <p className="text-xs text-red-400">Over by {formatCurrency(Math.abs(remainingBudget))}</p>
-              )}
+              
+              {/* Export Button with Dropdown */}
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                >
+                  📊 Export
+                </Button>
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50">
+                    <button
+                      onClick={() => handleExport('squad')}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+                    >
+                      📋 Export My Squad
+                    </button>
+                    <button
+                      onClick={() => handleExport('budget')}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+                    >
+                      💰 Export Budget Details
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem('auction_user');
+                  window.location.href = '/login';
+                }}
+              >
+                Logout
+              </Button>
             </div>
-          </div>
-          <div className="flex justify-between mt-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                localStorage.removeItem('auction_user');
-                window.location.href = '/login';
-              }}
-            >
-              Logout
-            </Button>
           </div>
         </div>
       </header>
@@ -168,7 +211,7 @@ export default function OwnerPage() {
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            My Squad
+            My Squad ({getTotalSquadSize()}/11)
           </button>
           <button
             onClick={() => setActiveTab('auction')}
@@ -178,7 +221,7 @@ export default function OwnerPage() {
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            Live Auction
+            Live Auction ({unsoldPlayers.length} left)
           </button>
         </div>
 
