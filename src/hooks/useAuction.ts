@@ -160,7 +160,7 @@ export const useAuction = () => {
       }
 
       // 1. Update player with atomic condition - ONLY if status is still 'unsold'
-      const { error: playerError } = await supabase
+      const { data: updateResult, error: playerError } = await supabase
         .from('players')
         .update({
           status: 'sold',
@@ -168,11 +168,19 @@ export const useAuction = () => {
           sold_price: price,
         })
         .eq('id', playerId)
-        .eq('status', 'unsold'); // CRITICAL: This prevents duplicate updates
+        .eq('status', 'unsold')
+        .select();
 
       if (playerError) {
         console.error('Player update error:', playerError);
         throw playerError;
+      }
+
+      // Check if the update actually affected any rows
+      if (!updateResult || updateResult.length === 0) {
+        console.log('Player was already sold, skipping log creation');
+        toast.error(`${player.name} has already been sold!`);
+        return false;
       }
 
       console.log('Player updated successfully');
@@ -205,7 +213,7 @@ export const useAuction = () => {
 
       console.log('Team updated successfully. New budget:', team.budget - price);
 
-      // 3. Create auction log
+      // 3. Create auction log - ONLY if player was actually updated
       const { data: logData, error: logError } = await supabase
         .from('auction_logs')
         .insert({
@@ -218,7 +226,6 @@ export const useAuction = () => {
 
       if (logError) {
         console.error('Log insert error:', logError);
-        // Log error but don't revert the sale since it's already completed
         toast.error('Sale completed but log entry failed');
       } else {
         console.log('Auction log created:', logData);
