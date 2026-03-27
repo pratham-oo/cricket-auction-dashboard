@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { formatCurrency, getRoleColor, getRoleIcon } from '@/lib/utils';
+import { exportToExcel, exportSummaryToExcel, exportFullReport } from '@/lib/exportUtils';
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -34,6 +35,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'available' | 'sold'>('available');
   const [soldSearchTerm, setSoldSearchTerm] = useState('');
   const [soldRoleFilter, setSoldRoleFilter] = useState<string>('all');
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Protect admin route - redirect if not admin
   useEffect(() => {
@@ -99,6 +101,17 @@ export default function AdminPage() {
     }
   };
 
+  const handleExport = (type: 'sales' | 'summary' | 'full') => {
+    if (type === 'sales') {
+      exportToExcel(soldPlayers, teams, logs);
+    } else if (type === 'summary') {
+      exportSummaryToExcel(teams, soldPlayers);
+    } else if (type === 'full') {
+      exportFullReport(soldPlayers, teams, logs);
+    }
+    setShowExportMenu(false);
+  };
+
   // Show loading while checking auth
   if (authLoading || loading) {
     return (
@@ -134,6 +147,40 @@ export default function AdminPage() {
                 <div className="text-xs text-gray-400">Sold</div>
                 <div className="text-lg md:text-2xl font-bold text-green-400">{soldPlayers.length}</div>
               </div>
+              
+              {/* Export Button with Dropdown */}
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                >
+                  📊 Export
+                </Button>
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50">
+                    <button
+                      onClick={() => handleExport('sales')}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+                    >
+                      📋 Export Sales Only
+                    </button>
+                    <button
+                      onClick={() => handleExport('summary')}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+                    >
+                      📊 Export Team Summary
+                    </button>
+                    <button
+                      onClick={() => handleExport('full')}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+                    >
+                      📑 Export Full Report
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               <Button 
                 variant="outline" 
                 size="sm"
