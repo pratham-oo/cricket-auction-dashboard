@@ -99,11 +99,14 @@ export const useAuction = () => {
         throw new Error('Team or player not found');
       }
 
+      // CRITICAL: Check if player is already sold (prevents duplicate sales)
+      if (player.status === 'sold') {
+        toast.error(`${player.name} has already been sold!`);
+        return false;
+      }
+
       console.log('Selling player:', player.name, 'to team:', team.team_name, 'for:', price);
       console.log('Current team budget:', team.budget);
-
-      // NO BUDGET CHECK - Allow overspending
-      // Teams can go into negative budget
 
       // Check player limit (max 9 auction players per team)
       const auctionPlayersCount = players.filter(p => p.sold_to === teamId).length;
@@ -157,7 +160,7 @@ export const useAuction = () => {
 
       // 2. Update team stats - ALLOW NEGATIVE BUDGET
       const updateData: any = {
-        budget: team.budget - price,  // This can now go negative
+        budget: team.budget - price,
         total_players: team.total_players + 1,
       };
       updateData[roleKey] = currentRoleCount + 1;
@@ -192,7 +195,7 @@ export const useAuction = () => {
 
       console.log('Auction log created:', logData);
 
-      // Show warning if budget is negative - FIXED: using toast with custom style or toast.error
+      // Show warning if budget is negative
       const newBudget = team.budget - price;
       if (newBudget < 0) {
         toast.error(`${team.team_name} is now OVER BUDGET by ${formatCurrency(Math.abs(newBudget))}!`, {
@@ -237,6 +240,18 @@ export const useAuction = () => {
       // Check if already undone
       if (log.action !== 'sold') {
         toast.error('This sale has already been undone');
+        return false;
+      }
+
+      // Check if player is already unsold (prevent double undo)
+      const { data: playerCheck, error: playerCheckError } = await supabase
+        .from('players')
+        .select('status')
+        .eq('id', log.player_id)
+        .single();
+        
+      if (playerCheck && playerCheck.status !== 'sold') {
+        toast.error('Player is already unsold');
         return false;
       }
 

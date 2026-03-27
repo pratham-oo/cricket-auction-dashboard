@@ -30,7 +30,7 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSelling, setIsSelling] = useState(false);
 
   // Protect admin route - redirect if not admin
   useEffect(() => {
@@ -49,6 +49,11 @@ export default function AdminPage() {
   });
 
   const handleSell = async () => {
+    // Prevent multiple clicks
+    if (isSelling) {
+      return;
+    }
+    
     if (!selectedPlayer || !selectedTeam) {
       alert('Please select a player and team');
       return;
@@ -59,12 +64,16 @@ export default function AdminPage() {
       return;
     }
 
-    // NO BUDGET CHECK - Allow overspending
-    const success = await sellPlayer(selectedPlayer.id, selectedTeam, currentBid);
-    if (success) {
-      setSelectedPlayer(null);
-      setCurrentBid(25);
-      setSelectedTeam('');
+    setIsSelling(true);
+    try {
+      const success = await sellPlayer(selectedPlayer.id, selectedTeam, currentBid);
+      if (success) {
+        setSelectedPlayer(null);
+        setCurrentBid(25);
+        setSelectedTeam('');
+      }
+    } finally {
+      setIsSelling(false);
     }
   };
 
@@ -91,7 +100,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-      {/* Mobile Header */}
+      {/* Header */}
       <header className="bg-black/50 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
@@ -137,7 +146,6 @@ export default function AdminPage() {
       </header>
 
       <div className="container mx-auto px-4 py-4">
-        {/* Mobile: Stack vertically, Desktop: Grid */}
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4">
           {/* Player List Section */}
           <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
@@ -172,7 +180,6 @@ export default function AdminPage() {
                       key={player.id}
                       onClick={() => {
                         setSelectedPlayer(player);
-                        setMobileMenuOpen(false);
                       }}
                       className={`p-3 rounded-lg border cursor-pointer transition-all ${
                         selectedPlayer?.id === player.id
@@ -232,7 +239,6 @@ export default function AdminPage() {
                         <option value="">Choose a team...</option>
                         {teams.map((team) => {
                           const auctionPlayersCount = players.filter(p => p.sold_to === team.id).length;
-                          const remainingNeeded = 9 - auctionPlayersCount;
                           const maxReached = auctionPlayersCount >= 9;
                           const isOverBudget = team.budget < 0;
                           
@@ -266,8 +272,13 @@ export default function AdminPage() {
                       />
                     </div>
 
-                    <Button onClick={handleSell} className="w-full text-sm" variant="success">
-                      Confirm Sale
+                    <Button 
+                      onClick={handleSell} 
+                      className="w-full text-sm" 
+                      variant="success"
+                      disabled={isSelling}
+                    >
+                      {isSelling ? 'Selling...' : 'Confirm Sale'}
                     </Button>
 
                     <Button
@@ -290,7 +301,7 @@ export default function AdminPage() {
               </CardContent>
             </Card>
 
-            {/* Team Stats Card - Shows Negative Budget */}
+            {/* Team Stats Card */}
             <Card>
               <CardHeader className="p-4">
                 <CardTitle className="text-lg md:text-xl">Team Progress</CardTitle>
