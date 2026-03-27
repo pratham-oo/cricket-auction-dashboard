@@ -31,6 +31,9 @@ export default function AdminPage() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isSelling, setIsSelling] = useState(false);
+  const [activeTab, setActiveTab] = useState<'available' | 'sold'>('available');
+  const [soldSearchTerm, setSoldSearchTerm] = useState('');
+  const [soldRoleFilter, setSoldRoleFilter] = useState<string>('all');
 
   // Protect admin route - redirect if not admin
   useEffect(() => {
@@ -42,9 +45,15 @@ export default function AdminPage() {
   const unsoldPlayers = getUnsoldPlayers();
   const soldPlayers = getSoldPlayers();
   
-  const filteredPlayers = unsoldPlayers.filter(player => {
+  const filteredUnsoldPlayers = unsoldPlayers.filter(player => {
     const matchesSearch = player.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || player.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  const filteredSoldPlayers = soldPlayers.filter(player => {
+    const matchesSearch = player.name.toLowerCase().includes(soldSearchTerm.toLowerCase());
+    const matchesRole = soldRoleFilter === 'all' || player.role === soldRoleFilter;
     return matchesSearch && matchesRole;
   });
 
@@ -77,7 +86,6 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Sale error:', error);
     } finally {
-      // Disable button for 1 second even after completion
       setTimeout(() => {
         setIsSelling(false);
       }, 1000);
@@ -153,63 +161,143 @@ export default function AdminPage() {
       </header>
 
       <div className="container mx-auto px-4 py-4">
+        {/* Tabs for Available/Sold Players */}
+        <div className="flex gap-4 mb-4 border-b border-gray-800">
+          <button
+            onClick={() => setActiveTab('available')}
+            className={`px-4 py-2 text-sm md:text-base font-medium transition-colors ${
+              activeTab === 'available'
+                ? 'text-blue-500 border-b-2 border-blue-500'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Available Players ({unsoldPlayers.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('sold')}
+            className={`px-4 py-2 text-sm md:text-base font-medium transition-colors ${
+              activeTab === 'sold'
+                ? 'text-blue-500 border-b-2 border-blue-500'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Sold Players ({soldPlayers.length})
+          </button>
+        </div>
+
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4">
           {/* Player List Section */}
           <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
             <Card>
               <CardHeader className="p-4">
-                <CardTitle className="text-lg md:text-xl">Available Players</CardTitle>
-                <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                  <input
-                    type="text"
-                    placeholder="Search players..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
-                  />
-                  <select
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
-                  >
-                    <option value="all">All Roles</option>
-                    <option value="Batsman">Batsman</option>
-                    <option value="Bowler">Bowler</option>
-                    <option value="All-rounder">All-rounder</option>
-                    <option value="Wicket-keeper">Wicket-keeper</option>
-                  </select>
-                </div>
+                <CardTitle className="text-lg md:text-xl">
+                  {activeTab === 'available' ? 'Available Players' : 'Sold Players'}
+                </CardTitle>
+                
+                {activeTab === 'available' ? (
+                  <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                    <input
+                      type="text"
+                      placeholder="Search players..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                    />
+                    <select
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="Batsman">Batsman</option>
+                      <option value="Bowler">Bowler</option>
+                      <option value="All-rounder">All-rounder</option>
+                      <option value="Wicket-keeper">Wicket-keeper</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                    <input
+                      type="text"
+                      placeholder="Search sold players..."
+                      value={soldSearchTerm}
+                      onChange={(e) => setSoldSearchTerm(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                    />
+                    <select
+                      value={soldRoleFilter}
+                      onChange={(e) => setSoldRoleFilter(e.target.value)}
+                      className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="Batsman">Batsman</option>
+                      <option value="Bowler">Bowler</option>
+                      <option value="All-rounder">All-rounder</option>
+                      <option value="Wicket-keeper">Wicket-keeper</option>
+                    </select>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[500px] overflow-y-auto">
-                  {filteredPlayers.map((player) => (
-                    <div
-                      key={player.id}
-                      onClick={() => {
-                        setSelectedPlayer(player);
-                      }}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                        selectedPlayer?.id === player.id
-                          ? 'border-blue-500 bg-blue-500/10'
-                          : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-semibold text-white text-sm">{player.name}</h3>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${getRoleColor(player.role)}`}>
-                          {getRoleIcon(player.role)} {player.role}
-                        </span>
+                  {activeTab === 'available' ? (
+                    filteredUnsoldPlayers.map((player) => (
+                      <div
+                        key={player.id}
+                        onClick={() => setSelectedPlayer(player)}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                          selectedPlayer?.id === player.id
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-semibold text-white text-sm">{player.name}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${getRoleColor(player.role)}`}>
+                            {getRoleIcon(player.role)} {player.role}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-400">Base Price:</span>
+                          <span className="text-yellow-400 font-semibold">{formatCurrency(player.base_price)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-400">Base Price:</span>
-                        <span className="text-yellow-400 font-semibold">{formatCurrency(player.base_price)}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    filteredSoldPlayers.map((player) => {
+                      const boughtTeam = teams.find(t => t.id === player.sold_to);
+                      return (
+                        <div
+                          key={player.id}
+                          className="p-3 rounded-lg border border-green-500/30 bg-green-500/5"
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <h3 className="font-semibold text-white text-sm">{player.name}</h3>
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${getRoleColor(player.role)}`}>
+                              {getRoleIcon(player.role)} {player.role}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs mt-1">
+                            <span className="text-gray-400">Sold to:</span>
+                            <span className="text-blue-400 font-semibold">{boughtTeam?.team_name}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs mt-1">
+                            <span className="text-gray-400">Sold for:</span>
+                            <span className="text-yellow-400 font-semibold">{formatCurrency(player.sold_price || 0)}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                {filteredPlayers.length === 0 && (
+                {activeTab === 'available' && filteredUnsoldPlayers.length === 0 && (
                   <div className="text-center text-gray-400 py-8">
                     No players found
+                  </div>
+                )}
+                {activeTab === 'sold' && filteredSoldPlayers.length === 0 && (
+                  <div className="text-center text-gray-400 py-8">
+                    No sold players yet
                   </div>
                 )}
               </CardContent>
@@ -218,95 +306,97 @@ export default function AdminPage() {
 
           {/* Auction Controls Section */}
           <div className="space-y-4 order-1 lg:order-2">
-            {/* Sell Player Card */}
-            <Card>
-              <CardHeader className="p-4">
-                <CardTitle className="text-lg md:text-xl">Sell Player</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 space-y-3">
-                {selectedPlayer ? (
-                  <>
-                    <div className="p-3 bg-gray-800 rounded-lg">
-                      <p className="text-xs text-gray-400">Selected Player</p>
-                      <p className="text-base font-bold text-white">{selectedPlayer.name}</p>
-                      <p className={`text-xs ${getRoleColor(selectedPlayer.role)}`}>
-                        {selectedPlayer.role}
-                      </p>
-                    </div>
+            {/* Sell Player Card - Only show when on Available tab */}
+            {activeTab === 'available' && (
+              <Card>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-lg md:text-xl">Sell Player</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-3">
+                  {selectedPlayer ? (
+                    <>
+                      <div className="p-3 bg-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-400">Selected Player</p>
+                        <p className="text-base font-bold text-white">{selectedPlayer.name}</p>
+                        <p className={`text-xs ${getRoleColor(selectedPlayer.role)}`}>
+                          {selectedPlayer.role}
+                        </p>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-medium mb-1 text-gray-300">
-                        Select Team
-                      </label>
-                      <select
-                        value={selectedTeam}
-                        onChange={(e) => setSelectedTeam(e.target.value)}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                      <div>
+                        <label className="block text-xs font-medium mb-1 text-gray-300">
+                          Select Team
+                        </label>
+                        <select
+                          value={selectedTeam}
+                          onChange={(e) => setSelectedTeam(e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                        >
+                          <option value="">Choose a team...</option>
+                          {teams.map((team) => {
+                            const auctionPlayersCount = players.filter(p => p.sold_to === team.id).length;
+                            const maxReached = auctionPlayersCount >= 9;
+                            const isOverBudget = team.budget < 0;
+                            
+                            return (
+                              <option 
+                                key={team.id} 
+                                value={team.id}
+                                disabled={maxReached}
+                                className={maxReached ? 'text-gray-500' : 'text-white'}
+                              >
+                                {team.team_name} | Budget: {formatCurrency(team.budget)} | Players: {auctionPlayersCount}/9
+                                {isOverBudget && ' 🔴 OVER'}
+                                {maxReached && ' (FULL)'}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium mb-1 text-gray-300">
+                          Bid Amount (Min: {selectedPlayer.base_price})
+                        </label>
+                        <input
+                          type="number"
+                          value={currentBid}
+                          onChange={(e) => setCurrentBid(Number(e.target.value))}
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                          min={selectedPlayer.base_price}
+                          step={5}
+                        />
+                      </div>
+
+                      <Button 
+                        onClick={handleSell} 
+                        className="w-full text-sm" 
+                        variant="success"
+                        disabled={isSelling}
                       >
-                        <option value="">Choose a team...</option>
-                        {teams.map((team) => {
-                          const auctionPlayersCount = players.filter(p => p.sold_to === team.id).length;
-                          const maxReached = auctionPlayersCount >= 9;
-                          const isOverBudget = team.budget < 0;
-                          
-                          return (
-                            <option 
-                              key={team.id} 
-                              value={team.id}
-                              disabled={maxReached}
-                              className={maxReached ? 'text-gray-500' : 'text-white'}
-                            >
-                              {team.team_name} | Budget: {formatCurrency(team.budget)} | Players: {auctionPlayersCount}/9
-                              {isOverBudget && ' 🔴 OVER'}
-                              {maxReached && ' (FULL)'}
-                            </option>
-                          );
-                        })}
-                      </select>
+                        {isSelling ? 'Selling...' : 'Confirm Sale'}
+                      </Button>
+
+                      <Button
+                        onClick={() => {
+                          setSelectedPlayer(null);
+                          setSelectedTeam('');
+                          setCurrentBid(25);
+                        }}
+                        variant="outline"
+                        className="w-full text-sm"
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="text-center text-gray-400 py-6 text-sm">
+                      Select a player to start bidding
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-medium mb-1 text-gray-300">
-                        Bid Amount (Min: {selectedPlayer.base_price})
-                      </label>
-                      <input
-                        type="number"
-                        value={currentBid}
-                        onChange={(e) => setCurrentBid(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
-                        min={selectedPlayer.base_price}
-                        step={5}
-                      />
-                    </div>
-
-                    <Button 
-                      onClick={handleSell} 
-                      className="w-full text-sm" 
-                      variant="success"
-                      disabled={isSelling}
-                    >
-                      {isSelling ? 'Selling...' : 'Confirm Sale'}
-                    </Button>
-
-                    <Button
-                      onClick={() => {
-                        setSelectedPlayer(null);
-                        setSelectedTeam('');
-                        setCurrentBid(25);
-                      }}
-                      variant="outline"
-                      className="w-full text-sm"
-                    >
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <div className="text-center text-gray-400 py-6 text-sm">
-                    Select a player to start bidding
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Team Stats Card */}
             <Card>
