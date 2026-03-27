@@ -92,17 +92,18 @@ export const useAuction = () => {
 
   const sellPlayer = async (playerId: string, teamId: string, price: number) => {
     try {
+      // IMMEDIATE CLIENT-SIDE CHECK - Check if player is already sold in current state
+      const currentPlayer = players.find(p => p.id === playerId);
+      if (currentPlayer?.status === 'sold') {
+        toast.error(`${currentPlayer.name} has already been sold!`);
+        return false;
+      }
+
       const team = teams.find(t => t.id === teamId);
       const player = players.find(p => p.id === playerId);
 
       if (!team || !player) {
         throw new Error('Team or player not found');
-      }
-
-      // CRITICAL: Check if player is already sold (prevents duplicate sales)
-      if (player.status === 'sold') {
-        toast.error(`${player.name} has already been sold!`);
-        return false;
       }
 
       console.log('Selling player:', player.name, 'to team:', team.team_name, 'for:', price);
@@ -141,7 +142,24 @@ export const useAuction = () => {
         return false;
       }
 
-      // 1. Update player
+      // DATABASE-LEVEL CHECK - Check if player is already sold at database level
+      const { data: currentPlayerData, error: checkError } = await supabase
+        .from('players')
+        .select('status, sold_to')
+        .eq('id', playerId)
+        .single();
+
+      if (checkError) {
+        console.error('Error checking player status:', checkError);
+        throw checkError;
+      }
+
+      if (currentPlayerData.status === 'sold') {
+        toast.error(`${player.name} has already been sold!`);
+        return false;
+      }
+
+      // 1. Update player with atomic condition - ONLY if status is still 'unsold'
       const { error: playerError } = await supabase
         .from('players')
         .update({
@@ -149,7 +167,8 @@ export const useAuction = () => {
           sold_to: teamId,
           sold_price: price,
         })
-        .eq('id', playerId);
+        .eq('id', playerId)
+        .eq('status', 'unsold'); // CRITICAL: This prevents duplicate updates
 
       if (playerError) {
         console.error('Player update error:', playerError);
@@ -172,6 +191,15 @@ export const useAuction = () => {
 
       if (teamError) {
         console.error('Team update error:', teamError);
+        // Attempt to revert player status if team update fails
+        await supabase
+          .from('players')
+          .update({
+            status: 'unsold',
+            sold_to: null,
+            sold_price: null,
+          })
+          .eq('id', playerId);
         throw teamError;
       }
 
@@ -190,10 +218,11 @@ export const useAuction = () => {
 
       if (logError) {
         console.error('Log insert error:', logError);
-        throw logError;
+        // Log error but don't revert the sale since it's already completed
+        toast.error('Sale completed but log entry failed');
+      } else {
+        console.log('Auction log created:', logData);
       }
-
-      console.log('Auction log created:', logData);
 
       // Show warning if budget is negative
       const newBudget = team.budget - price;

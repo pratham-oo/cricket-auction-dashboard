@@ -31,6 +31,7 @@ export default function AdminPage() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isSelling, setIsSelling] = useState(false);
+  const [lastSellTime, setLastSellTime] = useState(0);
 
   // Protect admin route - redirect if not admin
   useEffect(() => {
@@ -49,8 +50,10 @@ export default function AdminPage() {
   });
 
   const handleSell = async () => {
-    // Prevent multiple clicks
-    if (isSelling) {
+    // Prevent multiple clicks (client-side debounce)
+    const now = Date.now();
+    if (isSelling || (now - lastSellTime < 1000)) {
+      console.log('Sale already in progress, ignoring click');
       return;
     }
     
@@ -65,6 +68,8 @@ export default function AdminPage() {
     }
 
     setIsSelling(true);
+    setLastSellTime(now);
+    
     try {
       const success = await sellPlayer(selectedPlayer.id, selectedTeam, currentBid);
       if (success) {
@@ -72,8 +77,13 @@ export default function AdminPage() {
         setCurrentBid(25);
         setSelectedTeam('');
       }
+    } catch (error) {
+      console.error('Sale error:', error);
     } finally {
-      setIsSelling(false);
+      // Add a small delay before re-enabling the button
+      setTimeout(() => {
+        setIsSelling(false);
+      }, 500);
     }
   };
 
