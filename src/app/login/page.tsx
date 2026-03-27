@@ -84,6 +84,12 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
+          {/* Credit Line */}
+          <div className="mt-6 pt-4 border-t border-gray-800 text-center">
+            <p className="text-xs text-gray-500">
+              Developed by <span className="text-blue-400 font-medium">Pratham Shinde</span>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
