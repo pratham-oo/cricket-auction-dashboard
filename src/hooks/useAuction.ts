@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, subscribeToRealtime } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Player, Team, AuctionLog } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -22,49 +22,11 @@ export const useAuction = () => {
   const [currentBid, setCurrentBid] = useState(25);
   const [auctionRound, setAuctionRound] = useState(1);
 
-  useEffect(() => {
-    fetchInitialData();
-    
-    // Real-time subscriptions
-    const playersSubscription = subscribeToRealtime('players', (payload) => {
-      console.log('Players real-time event:', payload);
-      if (payload.eventType === 'UPDATE') {
-        setPlayers(prev => 
-          prev.map(p => p.id === payload.new.id ? payload.new as Player : p)
-        );
-      }
-    });
-
-    const teamsSubscription = subscribeToRealtime('teams', (payload) => {
-      console.log('Teams real-time event:', payload);
-      if (payload.eventType === 'UPDATE') {
-        setTeams(prev => 
-          prev.map(t => t.id === payload.new.id ? payload.new as Team : t)
-        );
-      }
-    });
-
-    const logsSubscription = subscribeToRealtime('auction_logs', (payload) => {
-      console.log('Logs real-time event:', payload);
-      if (payload.eventType === 'INSERT') {
-        setLogs(prev => [payload.new as AuctionLog, ...prev]);
-      }
-      if (payload.eventType === 'UPDATE') {
-        setLogs(prev => 
-          prev.map(l => l.id === payload.new.id ? payload.new as AuctionLog : l)
-        );
-      }
-    });
-
-    return () => {
-      playersSubscription.unsubscribe();
-      teamsSubscription.unsubscribe();
-      logsSubscription.unsubscribe();
-    };
-  }, []);
-
+  // Fetch initial data
   const fetchInitialData = async () => {
     try {
+      console.log('Fetching initial data...');
+      
       const [playersRes, teamsRes, logsRes] = await Promise.all([
         supabase.from('players').select('*').order('name'),
         supabase.from('teams').select('*').order('team_name'),
@@ -90,15 +52,85 @@ export const useAuction = () => {
     }
   };
 
+  // Set up real-time subscriptions
+  useEffect(() => {
+    fetchInitialData();
+
+    // Subscribe to players table
+    const playersChannel = supabase
+      .channel('players-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'players' },
+        (payload) => {
+          console.log('🔄 Players real-time update:', payload);
+          if (payload.eventType === 'UPDATE') {
+            setPlayers(prev => 
+              prev.map(p => p.id === payload.new.id ? payload.new as Player : p)
+            );
+          }
+          if (payload.eventType === 'INSERT') {
+            setPlayers(prev => [...prev, payload.new as Player]);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Players channel status:', status);
+      });
+
+    // Subscribe to teams table
+    const teamsChannel = supabase
+      .channel('teams-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'teams' },
+        (payload) => {
+          console.log('🔄 Teams real-time update:', payload);
+          if (payload.eventType === 'UPDATE') {
+            setTeams(prev => 
+              prev.map(t => t.id === payload.new.id ? payload.new as Team : t)
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Teams channel status:', status);
+      });
+
+    // Subscribe to auction_logs table
+    const logsChannel = supabase
+      .channel('logs-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auction_logs' },
+        (payload) => {
+          console.log('🔄 Logs real-time update:', payload);
+          if (payload.eventType === 'INSERT') {
+            setLogs(prev => [payload.new as AuctionLog, ...prev]);
+          }
+          if (payload.eventType === 'UPDATE') {
+            setLogs(prev => 
+              prev.map(l => l.id === payload.new.id ? payload.new as AuctionLog : l)
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Logs channel status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up subscriptions...');
+      playersChannel.unsubscribe();
+      teamsChannel.unsubscribe();
+      logsChannel.unsubscribe();
+    };
+  }, []);
+
   const sellPlayer = async (playerId: string, teamId: string, price: number) => {
     try {
-      // IMMEDIATE CLIENT-SIDE CHECK - Check if player is already sold in current state
-      const currentPlayer = players.find(p => p.id === playerId);
-      if (currentPlayer?.status === 'sold') {
-        toast.error(`${currentPlayer.name} has already been sold!`);
-        return false;
-      }
-
+      console.log('💰 Selling player:', playerId, 'to team:', teamId, 'for:', price);
+      
       const team = teams.find(t => t.id === teamId);
       const player = players.find(p => p.id === playerId);
 
@@ -106,10 +138,13 @@ export const useAuction = () => {
         throw new Error('Team or player not found');
       }
 
-      console.log('Selling player:', player.name, 'to team:', team.team_name, 'for:', price);
-      console.log('Current team budget:', team.budget);
+      // Check if player is already sold
+      if (player.status === 'sold') {
+        toast.error(`${player.name} has already been sold!`);
+        return false;
+      }
 
-      // Check player limit (max 9 auction players per team)
+      // Check player limit
       const auctionPlayersCount = players.filter(p => p.sold_to === teamId).length;
       if (auctionPlayersCount >= 9) {
         toast.error(`${team.team_name} already has maximum auction players (9)!`);
@@ -142,24 +177,7 @@ export const useAuction = () => {
         return false;
       }
 
-      // DATABASE-LEVEL CHECK - Check if player is already sold at database level
-      const { data: currentPlayerData, error: checkError } = await supabase
-        .from('players')
-        .select('status, sold_to')
-        .eq('id', playerId)
-        .single();
-
-      if (checkError) {
-        console.error('Error checking player status:', checkError);
-        throw checkError;
-      }
-
-      if (currentPlayerData.status === 'sold') {
-        toast.error(`${player.name} has already been sold!`);
-        return false;
-      }
-
-      // 1. Update player with atomic condition - ONLY if status is still 'unsold'
+      // Update player with atomic condition
       const { data: updateResult, error: playerError } = await supabase
         .from('players')
         .update({
@@ -176,16 +194,14 @@ export const useAuction = () => {
         throw playerError;
       }
 
-      // Check if the update actually affected any rows
       if (!updateResult || updateResult.length === 0) {
-        console.log('Player was already sold, skipping log creation');
         toast.error(`${player.name} has already been sold!`);
         return false;
       }
 
-      console.log('Player updated successfully');
+      console.log('✅ Player updated successfully');
 
-      // 2. Update team stats - ALLOW NEGATIVE BUDGET
+      // Update team stats
       const updateData: any = {
         budget: team.budget - price,
         total_players: team.total_players + 1,
@@ -199,39 +215,34 @@ export const useAuction = () => {
 
       if (teamError) {
         console.error('Team update error:', teamError);
-        // Attempt to revert player status if team update fails
+        // Revert player
         await supabase
           .from('players')
-          .update({
-            status: 'unsold',
-            sold_to: null,
-            sold_price: null,
-          })
+          .update({ status: 'unsold', sold_to: null, sold_price: null })
           .eq('id', playerId);
         throw teamError;
       }
 
-      console.log('Team updated successfully. New budget:', team.budget - price);
+      console.log('✅ Team updated successfully');
 
-      // 3. Create auction log - ONLY if player was actually updated
-      const { data: logData, error: logError } = await supabase
+      // Create auction log
+      const { error: logError } = await supabase
         .from('auction_logs')
         .insert({
           player_id: playerId,
           team_id: teamId,
           action: 'sold',
           price: price,
-        })
-        .select();
+        });
 
       if (logError) {
         console.error('Log insert error:', logError);
         toast.error('Sale completed but log entry failed');
       } else {
-        console.log('Auction log created:', logData);
+        console.log('✅ Auction log created');
       }
 
-      // Show warning if budget is negative
+      // Show success message
       const newBudget = team.budget - price;
       if (newBudget < 0) {
         toast.error(`${team.team_name} is now OVER BUDGET by ${formatCurrency(Math.abs(newBudget))}!`, {
@@ -248,7 +259,7 @@ export const useAuction = () => {
       
       return true;
     } catch (error) {
-      console.error('Error selling player:', error);
+      console.error('❌ Error selling player:', error);
       toast.error('Failed to complete sale');
       return false;
     }
@@ -256,9 +267,8 @@ export const useAuction = () => {
 
   const undoSale = async (logId: string) => {
     try {
-      console.log('Attempting to undo sale with logId:', logId);
+      console.log('↩️ Undoing sale with logId:', logId);
       
-      // Get the log entry
       const { data: log, error: logError } = await supabase
         .from('auction_logs')
         .select('*')
@@ -271,27 +281,11 @@ export const useAuction = () => {
         return false;
       }
       
-      console.log('Found log:', log);
-      
-      // Check if already undone
       if (log.action !== 'sold') {
         toast.error('This sale has already been undone');
         return false;
       }
 
-      // Check if player is already unsold (prevent double undo)
-      const { data: playerCheck, error: playerCheckError } = await supabase
-        .from('players')
-        .select('status')
-        .eq('id', log.player_id)
-        .single();
-        
-      if (playerCheck && playerCheck.status !== 'sold') {
-        toast.error('Player is already unsold');
-        return false;
-      }
-
-      // Get player and team
       const { data: player, error: playerError } = await supabase
         .from('players')
         .select('*')
@@ -310,50 +304,24 @@ export const useAuction = () => {
         return false;
       }
 
-      console.log('Found player:', player);
-      console.log('Found team:', team);
-
-      // Determine role key
       let roleKey: keyof Team;
       switch (player.role) {
-        case 'Batsman':
-          roleKey = 'batsmen';
-          break;
-        case 'Bowler':
-          roleKey = 'bowlers';
-          break;
-        case 'All-rounder':
-          roleKey = 'all_rounders';
-          break;
-        case 'Wicket-keeper':
-          roleKey = 'wicket_keepers';
-          break;
-        default:
-          roleKey = 'all_rounders';
+        case 'Batsman': roleKey = 'batsmen'; break;
+        case 'Bowler': roleKey = 'bowlers'; break;
+        case 'All-rounder': roleKey = 'all_rounders'; break;
+        case 'Wicket-keeper': roleKey = 'wicket_keepers'; break;
+        default: roleKey = 'all_rounders';
       }
 
-      // Reverse player status
-      const { error: updatePlayerError } = await supabase
+      // Reverse player
+      await supabase
         .from('players')
-        .update({
-          status: 'unsold',
-          sold_to: null,
-          sold_price: null,
-        })
+        .update({ status: 'unsold', sold_to: null, sold_price: null })
         .eq('id', log.player_id);
 
-      if (updatePlayerError) {
-        console.error('Error updating player:', updatePlayerError);
-        toast.error('Failed to update player');
-        return false;
-      }
-
-      console.log('Player reverted successfully');
-
-      // Reverse team stats
+      // Reverse team
       const currentRoleCount = team[roleKey] as number;
-
-      const { error: updateTeamError } = await supabase
+      await supabase
         .from('teams')
         .update({
           budget: team.budget + log.price,
@@ -362,31 +330,16 @@ export const useAuction = () => {
         })
         .eq('id', log.team_id);
 
-      if (updateTeamError) {
-        console.error('Error updating team:', updateTeamError);
-        toast.error('Failed to update team');
-        return false;
-      }
-
-      console.log('Team reverted successfully');
-
-      // Update log to mark as undone
-      const { error: updateLogError } = await supabase
+      // Update log
+      await supabase
         .from('auction_logs')
         .update({ action: 'undo' })
         .eq('id', logId);
 
-      if (updateLogError) {
-        console.error('Error updating log:', updateLogError);
-        toast.error('Failed to update log');
-        return false;
-      }
-
-      console.log('Log updated successfully');
       toast.success('Sale undone successfully!');
       return true;
     } catch (error) {
-      console.error('Error undoing sale:', error);
+      console.error('❌ Error undoing sale:', error);
       toast.error('Failed to undo sale');
       return false;
     }
