@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState, useRef } from 'react';
+import { supabase, checkConnection } from '@/lib/supabase';
 import { Player, Team, AuctionLog } from '@/types';
 import toast from 'react-hot-toast';
 
-// Helper function for formatting currency
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -21,6 +20,25 @@ export const useAuction = () => {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [currentBid, setCurrentBid] = useState(25);
   const [auctionRound, setAuctionRound] = useState(1);
+  const [isConnected, setIsConnected] = useState(true);
+  
+  // Refs to store channels for cleanup
+  const channelsRef = useRef<any[]>([]);
+
+  // Function to check connection periodically (heartbeat)
+  useEffect(() => {
+    const heartbeat = setInterval(async () => {
+      const connected = await checkConnection();
+      setIsConnected(connected);
+      if (!connected) {
+        console.log('⚠️ Connection lost, attempting to reconnect...');
+        // Trigger a reconnection
+        window.dispatchEvent(new Event('online'));
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(heartbeat);
+  }, []);
 
   // Fetch initial data
   const fetchInitialData = async () => {
@@ -52,13 +70,19 @@ export const useAuction = () => {
     }
   };
 
-  // Set up real-time subscriptions
-  useEffect(() => {
-    fetchInitialData();
+  // Function to setup real-time subscriptions with auto-reconnect
+  const setupSubscriptions = () => {
+    // Clean up existing channels
+    channelsRef.current.forEach(channel => {
+      try {
+        channel.unsubscribe();
+      } catch (e) {}
+    });
+    channelsRef.current = [];
 
     // Subscribe to players table
     const playersChannel = supabase
-      .channel('players-channel')
+      .channel(`players-channel-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'players' },
@@ -76,11 +100,15 @@ export const useAuction = () => {
       )
       .subscribe((status) => {
         console.log('Players channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.log('Players channel error, reconnecting...');
+          setTimeout(() => setupSubscriptions(), 3000);
+        }
       });
 
     // Subscribe to teams table
     const teamsChannel = supabase
-      .channel('teams-channel')
+      .channel(`teams-channel-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'teams' },
@@ -95,11 +123,15 @@ export const useAuction = () => {
       )
       .subscribe((status) => {
         console.log('Teams channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.log('Teams channel error, reconnecting...');
+          setTimeout(() => setupSubscriptions(), 3000);
+        }
       });
 
     // Subscribe to auction_logs table
     const logsChannel = supabase
-      .channel('logs-channel')
+      .channel(`logs-channel-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'auction_logs' },
@@ -117,13 +149,43 @@ export const useAuction = () => {
       )
       .subscribe((status) => {
         console.log('Logs channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.log('Logs channel error, reconnecting...');
+          setTimeout(() => setupSubscriptions(), 3000);
+        }
       });
 
+    channelsRef.current = [playersChannel, teamsChannel, logsChannel];
+  };
+
+  // Set up real-time subscriptions
+  useEffect(() => {
+    fetchInitialData();
+    setupSubscriptions();
+
+    // Handle online/offline events for mobile
+    const handleOnline = () => {
+      console.log('📱 Device back online, reconnecting...');
+      setupSubscriptions();
+      fetchInitialData();
+    };
+
+    const handleOffline = () => {
+      console.log('📱 Device offline, waiting for reconnection...');
+      toast.error('Connection lost. Reconnecting...');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     return () => {
-      console.log('Cleaning up subscriptions...');
-      playersChannel.unsubscribe();
-      teamsChannel.unsubscribe();
-      logsChannel.unsubscribe();
+      channelsRef.current.forEach(channel => {
+        try {
+          channel.unsubscribe();
+        } catch (e) {}
+      });
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -138,36 +200,24 @@ export const useAuction = () => {
         throw new Error('Team or player not found');
       }
 
-      // Check if player is already sold
       if (player.status === 'sold') {
         toast.error(`${player.name} has already been sold!`);
         return false;
       }
 
-      // Check player limit
       const auctionPlayersCount = players.filter(p => p.sold_to === teamId).length;
       if (auctionPlayersCount >= 9) {
         toast.error(`${team.team_name} already has maximum auction players (9)!`);
         return false;
       }
 
-      // Check role limits
       let roleKey: keyof Team;
       switch (player.role) {
-        case 'Batsman':
-          roleKey = 'batsmen';
-          break;
-        case 'Bowler':
-          roleKey = 'bowlers';
-          break;
-        case 'All-rounder':
-          roleKey = 'all_rounders';
-          break;
-        case 'Wicket-keeper':
-          roleKey = 'wicket_keepers';
-          break;
-        default:
-          roleKey = 'all_rounders';
+        case 'Batsman': roleKey = 'batsmen'; break;
+        case 'Bowler': roleKey = 'bowlers'; break;
+        case 'All-rounder': roleKey = 'all_rounders'; break;
+        case 'Wicket-keeper': roleKey = 'wicket_keepers'; break;
+        default: roleKey = 'all_rounders';
       }
       
       const currentRoleCount = team[roleKey] as number;
@@ -189,17 +239,11 @@ export const useAuction = () => {
         .eq('status', 'unsold')
         .select();
 
-      if (playerError) {
-        console.error('Player update error:', playerError);
-        throw playerError;
-      }
-
+      if (playerError) throw playerError;
       if (!updateResult || updateResult.length === 0) {
         toast.error(`${player.name} has already been sold!`);
         return false;
       }
-
-      console.log('✅ Player updated successfully');
 
       // Update team stats
       const updateData: any = {
@@ -213,17 +257,7 @@ export const useAuction = () => {
         .update(updateData)
         .eq('id', teamId);
 
-      if (teamError) {
-        console.error('Team update error:', teamError);
-        // Revert player
-        await supabase
-          .from('players')
-          .update({ status: 'unsold', sold_to: null, sold_price: null })
-          .eq('id', playerId);
-        throw teamError;
-      }
-
-      console.log('✅ Team updated successfully');
+      if (teamError) throw teamError;
 
       // Create auction log
       const { error: logError } = await supabase
@@ -235,24 +269,11 @@ export const useAuction = () => {
           price: price,
         });
 
-      if (logError) {
-        console.error('Log insert error:', logError);
-        toast.error('Sale completed but log entry failed');
-      } else {
-        console.log('✅ Auction log created');
-      }
+      if (logError) console.error('Log error:', logError);
 
-      // Show success message
       const newBudget = team.budget - price;
       if (newBudget < 0) {
-        toast.error(`${team.team_name} is now OVER BUDGET by ${formatCurrency(Math.abs(newBudget))}!`, {
-          duration: 5000,
-          icon: '⚠️',
-        });
-      } else if (newBudget < 100) {
-        toast.success(`${player.name} sold to ${team.team_name} for ${price} points! (Only ${formatCurrency(newBudget)} left)`, {
-          duration: 4000,
-        });
+        toast.error(`${team.team_name} is now OVER BUDGET by ${formatCurrency(Math.abs(newBudget))}!`);
       } else {
         toast.success(`${player.name} sold to ${team.team_name} for ${price} points!`);
       }
@@ -275,12 +296,7 @@ export const useAuction = () => {
         .eq('id', logId)
         .single();
 
-      if (logError) {
-        console.error('Error fetching log:', logError);
-        toast.error('Failed to find sale record');
-        return false;
-      }
-      
+      if (logError) throw logError;
       if (log.action !== 'sold') {
         toast.error('This sale has already been undone');
         return false;
@@ -298,11 +314,7 @@ export const useAuction = () => {
         .eq('id', log.team_id)
         .single();
 
-      if (playerError || teamError) {
-        console.error('Error fetching data:', { playerError, teamError });
-        toast.error('Player or team not found');
-        return false;
-      }
+      if (playerError || teamError) throw new Error('Data not found');
 
       let roleKey: keyof Team;
       switch (player.role) {
@@ -313,13 +325,11 @@ export const useAuction = () => {
         default: roleKey = 'all_rounders';
       }
 
-      // Reverse player
       await supabase
         .from('players')
         .update({ status: 'unsold', sold_to: null, sold_price: null })
         .eq('id', log.player_id);
 
-      // Reverse team
       const currentRoleCount = team[roleKey] as number;
       await supabase
         .from('teams')
@@ -330,7 +340,6 @@ export const useAuction = () => {
         })
         .eq('id', log.team_id);
 
-      // Update log
       await supabase
         .from('auction_logs')
         .update({ action: 'undo' })
@@ -345,38 +354,28 @@ export const useAuction = () => {
     }
   };
 
-  const getTeamById = (teamId: string) => {
-    return teams.find(t => t.id === teamId);
-  };
+  const getTeamById = (teamId: string) => teams.find(t => t.id === teamId);
+  const getUnsoldPlayers = () => players.filter(p => p.status === 'unsold');
+  const getSoldPlayers = () => players.filter(p => p.status === 'sold');
+  const getTeamPlayers = (teamId: string) => players.filter(p => p.sold_to === teamId);
 
-  const getUnsoldPlayers = () => {
-    return players.filter(p => p.status === 'unsold');
-  };
-
-  const getSoldPlayers = () => {
-    return players.filter(p => p.status === 'sold');
-  };
-
-  const getTeamPlayers = (teamId: string) => {
-    return players.filter(p => p.sold_to === teamId);
-  };
-
-  return {
-    players,
-    teams,
-    logs,
-    loading,
-    selectedPlayer,
-    setSelectedPlayer,
-    currentBid,
-    setCurrentBid,
-    auctionRound,
-    setAuctionRound,
-    sellPlayer,
-    undoSale,
-    getTeamById,
-    getUnsoldPlayers,
-    getSoldPlayers,
-    getTeamPlayers,
-  };
+return {
+  players,
+  teams,
+  logs,
+  loading,
+  selectedPlayer,
+  setSelectedPlayer,
+  currentBid,
+  setCurrentBid,
+  auctionRound,
+  setAuctionRound,
+  sellPlayer,
+  undoSale,
+  getTeamById,
+  getUnsoldPlayers,
+  getSoldPlayers,
+  getTeamPlayers,
+  isConnected,  // Add this line
+};
 };

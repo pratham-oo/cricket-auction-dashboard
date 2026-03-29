@@ -26,6 +26,7 @@ export default function AdminPage() {
     undoSale,
     getUnsoldPlayers,
     getSoldPlayers,
+    isConnected,
   } = useAuction();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,6 +113,11 @@ export default function AdminPage() {
     setShowExportMenu(false);
   };
 
+  // Manual refresh function for mobile
+  const handleManualRefresh = () => {
+    window.location.reload();
+  };
+
   // Show loading while checking auth
   if (authLoading || loading) {
     return (
@@ -132,11 +138,16 @@ export default function AdminPage() {
       <header className="bg-black/50 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-                Auction Control
-              </h1>
-              <p className="text-gray-400 text-xs md:text-sm">Welcome, Admin</p>
+            <div className="flex items-center gap-2">
+              <div>
+                <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+                  Auction Control
+                </h1>
+                <p className="text-gray-400 text-xs md:text-sm">Welcome, Admin</p>
+              </div>
+              {/* Connection Status Indicator */}
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} 
+                   title={isConnected ? 'Connected' : 'Disconnected'} />
             </div>
             <div className="flex gap-2 md:gap-4 items-center">
               <div className="text-right hidden sm:block">
@@ -180,6 +191,17 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
+
+              {/* Manual Refresh Button - Shows on mobile */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleManualRefresh}
+                className="sm:hidden"
+                title="Refresh"
+              >
+                🔄
+              </Button>
               
               <Button 
                 variant="outline" 
@@ -208,6 +230,13 @@ export default function AdminPage() {
       </header>
 
       <div className="container mx-auto px-4 py-4">
+        {/* Connection Warning for Mobile */}
+        {!isConnected && (
+          <div className="mb-4 p-2 bg-red-500/20 border border-red-500 rounded-md text-center">
+            <p className="text-red-400 text-sm">⚠️ Connection lost. Tap refresh to reconnect.</p>
+          </div>
+        )}
+
         {/* Tabs for Available/Sold Players */}
         <div className="flex gap-4 mb-4 border-b border-gray-800">
           <button
