@@ -61,7 +61,6 @@ export default function AdminPage() {
   });
 
   const handleSell = async () => {
-    // Prevent multiple clicks
     if (isSelling) {
       console.log('Sale already in progress, ignoring click');
       return;
@@ -113,12 +112,10 @@ export default function AdminPage() {
     setShowExportMenu(false);
   };
 
-  // Manual refresh function for mobile
   const handleManualRefresh = () => {
     window.location.reload();
   };
 
-  // Show loading while checking auth
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
@@ -127,7 +124,6 @@ export default function AdminPage() {
     );
   }
 
-  // If not admin, don't render the page (redirect will happen)
   if (!user || user.role !== 'admin') {
     return null;
   }
@@ -145,7 +141,6 @@ export default function AdminPage() {
                 </h1>
                 <p className="text-gray-400 text-xs md:text-sm">Welcome, Admin</p>
               </div>
-              {/* Connection Status Indicator */}
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} 
                    title={isConnected ? 'Connected' : 'Disconnected'} />
             </div>
@@ -159,7 +154,6 @@ export default function AdminPage() {
                 <div className="text-lg md:text-2xl font-bold text-green-400">{soldPlayers.length}</div>
               </div>
               
-              {/* Export Button with Dropdown */}
               <div className="relative">
                 <Button 
                   variant="outline" 
@@ -192,7 +186,6 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Manual Refresh Button - Shows on mobile */}
               <Button 
                 variant="outline" 
                 size="sm"
@@ -215,7 +208,6 @@ export default function AdminPage() {
               </Button>
             </div>
           </div>
-          {/* Mobile Stats */}
           <div className="flex justify-between mt-2 sm:hidden">
             <div className="text-center">
               <div className="text-xs text-gray-400">Remaining</div>
@@ -230,14 +222,12 @@ export default function AdminPage() {
       </header>
 
       <div className="container mx-auto px-4 py-4">
-        {/* Connection Warning for Mobile */}
         {!isConnected && (
           <div className="mb-4 p-2 bg-red-500/20 border border-red-500 rounded-md text-center">
             <p className="text-red-400 text-sm">⚠️ Connection lost. Tap refresh to reconnect.</p>
           </div>
         )}
 
-        {/* Tabs for Available/Sold Players */}
         <div className="flex gap-4 mb-4 border-b border-gray-800">
           <button
             onClick={() => setActiveTab('available')}
@@ -342,13 +332,17 @@ export default function AdminPage() {
                   ) : (
                     filteredSoldPlayers.map((player) => {
                       const boughtTeam = teams.find(t => t.id === player.sold_to);
+                      const saleLog = logs.find(l => l.player_id === player.id && l.action === 'sold');
                       return (
                         <div
                           key={player.id}
                           className="p-3 rounded-lg border border-green-500/30 bg-green-500/5"
                         >
                           <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-semibold text-white text-sm">{player.name}</h3>
+                            <div>
+                              <h3 className="font-semibold text-white text-sm">{player.name}</h3>
+                              <p className="text-[10px] text-green-400">✓ Sold</p>
+                            </div>
                             <span className={`px-2 py-0.5 rounded-full text-xs ${getRoleColor(player.role)}`}>
                               {getRoleIcon(player.role)} {player.role}
                             </span>
@@ -361,6 +355,18 @@ export default function AdminPage() {
                             <span className="text-gray-400">Sold for:</span>
                             <span className="text-yellow-400 font-semibold">{formatCurrency(player.sold_price || 0)}</span>
                           </div>
+                          {saleLog && (
+                            <div className="mt-2">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleUndo(saleLog.id)}
+                                className="w-full text-xs h-7"
+                              >
+                                ↺ Undo Sale
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -382,7 +388,6 @@ export default function AdminPage() {
 
           {/* Auction Controls Section */}
           <div className="space-y-4 order-1 lg:order-2">
-            {/* Sell Player Card - Only show when on Available tab */}
             {activeTab === 'available' && (
               <Card>
                 <CardHeader className="p-4">
@@ -535,14 +540,15 @@ export default function AdminPage() {
               </CardContent>
             </Card>
 
-            {/* Recent Sales Card */}
+            {/* Recent Sales Card - Shows ALL Sales */}
             <Card>
               <CardHeader className="p-4">
-                <CardTitle className="text-lg md:text-xl">Recent Sales</CardTitle>
+                <CardTitle className="text-lg md:text-xl">All Sales</CardTitle>
+                <p className="text-xs text-gray-400">Total: {logs.length} players sold</p>
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                  {logs.slice(0, 10).map((log) => {
+                  {logs.map((log) => {
                     const player = players.find(p => p.id === log.player_id);
                     const team = teams.find(t => t.id === log.team_id);
                     return (
@@ -551,15 +557,15 @@ export default function AdminPage() {
                           <div className="flex-1">
                             <p className="font-semibold text-white text-sm">{player?.name}</p>
                             <p className="text-xs text-gray-400">to {team?.team_name}</p>
+                            <p className="text-xs text-yellow-400">💰 {formatCurrency(log.price)}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-yellow-400 font-bold text-sm">{formatCurrency(log.price)}</p>
                             {log.action === 'sold' && (
                               <Button
                                 size="sm"
                                 variant="destructive"
                                 onClick={() => handleUndo(log.id)}
-                                className="mt-1 text-xs h-6 px-2"
+                                className="text-xs h-7 px-2"
                               >
                                 Undo
                               </Button>
