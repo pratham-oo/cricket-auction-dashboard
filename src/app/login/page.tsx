@@ -21,7 +21,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-            EPL Auction 2026
+            Cricket Auction 2024
           </CardTitle>
           <CardDescription className="text-gray-400">
             Enter your credentials to access the dashboard
@@ -85,8 +85,19 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Credit Line */}
+          {/* Public Results Link - No login required */}
           <div className="mt-6 pt-4 border-t border-gray-800 text-center">
+            <a 
+              href="/public" 
+              target="_blank"
+              className="text-sm text-blue-400 hover:text-blue-300 underline inline-flex items-center gap-1"
+            >
+              📊 View Auction Results
+            </a>
+          </div>
+
+          {/* Credit Line */}
+          <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">
               Developed by <span className="text-blue-400 font-medium">Pratham Shinde</span>
             </p>
