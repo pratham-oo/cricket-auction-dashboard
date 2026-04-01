@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { supabase, checkConnection } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Player, Team, AuctionLog } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -22,25 +22,31 @@ export const useAuction = () => {
   const [auctionRound, setAuctionRound] = useState(1);
   const [isConnected, setIsConnected] = useState(true);
   
-  // Refs to store channels for cleanup
   const channelsRef = useRef<any[]>([]);
 
-  // Function to check connection periodically (heartbeat)
+  const checkConnection = async () => {
+    try {
+      const { error } = await supabase.from('teams').select('count', { count: 'exact', head: true });
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
   useEffect(() => {
     const heartbeat = setInterval(async () => {
       const connected = await checkConnection();
       setIsConnected(connected);
       if (!connected) {
         console.log('⚠️ Connection lost, attempting to reconnect...');
-        // Trigger a reconnection
         window.dispatchEvent(new Event('online'));
       }
-    }, 30000); // Check every 30 seconds
+    }, 30000);
 
     return () => clearInterval(heartbeat);
   }, []);
 
-  // Fetch initial data
   const fetchInitialData = async () => {
     try {
       console.log('Fetching initial data...');
@@ -70,9 +76,7 @@ export const useAuction = () => {
     }
   };
 
-  // Function to setup real-time subscriptions with auto-reconnect
   const setupSubscriptions = () => {
-    // Clean up existing channels
     channelsRef.current.forEach(channel => {
       try {
         channel.unsubscribe();
@@ -80,7 +84,6 @@ export const useAuction = () => {
     });
     channelsRef.current = [];
 
-    // Subscribe to players table
     const playersChannel = supabase
       .channel(`players-channel-${Date.now()}`)
       .on(
@@ -100,13 +103,8 @@ export const useAuction = () => {
       )
       .subscribe((status) => {
         console.log('Players channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.log('Players channel error, reconnecting...');
-          setTimeout(() => setupSubscriptions(), 3000);
-        }
       });
 
-    // Subscribe to teams table
     const teamsChannel = supabase
       .channel(`teams-channel-${Date.now()}`)
       .on(
@@ -123,13 +121,8 @@ export const useAuction = () => {
       )
       .subscribe((status) => {
         console.log('Teams channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.log('Teams channel error, reconnecting...');
-          setTimeout(() => setupSubscriptions(), 3000);
-        }
       });
 
-    // Subscribe to auction_logs table
     const logsChannel = supabase
       .channel(`logs-channel-${Date.now()}`)
       .on(
@@ -149,21 +142,15 @@ export const useAuction = () => {
       )
       .subscribe((status) => {
         console.log('Logs channel status:', status);
-        if (status === 'CHANNEL_ERROR') {
-          console.log('Logs channel error, reconnecting...');
-          setTimeout(() => setupSubscriptions(), 3000);
-        }
       });
 
     channelsRef.current = [playersChannel, teamsChannel, logsChannel];
   };
 
-  // Set up real-time subscriptions
   useEffect(() => {
     fetchInitialData();
     setupSubscriptions();
 
-    // Handle online/offline events for mobile
     const handleOnline = () => {
       console.log('📱 Device back online, reconnecting...');
       setupSubscriptions();
@@ -205,29 +192,38 @@ export const useAuction = () => {
         return false;
       }
 
+      // Check player limit (max 9 auction players per team)
       const auctionPlayersCount = players.filter(p => p.sold_to === teamId).length;
       if (auctionPlayersCount >= 9) {
         toast.error(`${team.team_name} already has maximum auction players (9)!`);
         return false;
       }
 
+      // ============================================
+      // ROLE LIMIT REMOVED - NO RESTRICTIONS ANYMORE
+      // Teams can buy any combination of players
+      // ============================================
+
       let roleKey: keyof Team;
       switch (player.role) {
-        case 'Batsman': roleKey = 'batsmen'; break;
-        case 'Bowler': roleKey = 'bowlers'; break;
-        case 'All-rounder': roleKey = 'all_rounders'; break;
-        case 'Wicket-keeper': roleKey = 'wicket_keepers'; break;
-        default: roleKey = 'all_rounders';
+        case 'Batsman':
+          roleKey = 'batsmen';
+          break;
+        case 'Bowler':
+          roleKey = 'bowlers';
+          break;
+        case 'All-rounder':
+          roleKey = 'all_rounders';
+          break;
+        case 'Wicket-keeper':
+          roleKey = 'wicket_keepers';
+          break;
+        default:
+          roleKey = 'all_rounders';
       }
       
       const currentRoleCount = team[roleKey] as number;
-      
-      if (currentRoleCount >= 7) {
-        toast.error(`Maximum ${player.role}s (7) reached for ${team.team_name}!`);
-        return false;
-      }
 
-      // Update player with atomic condition
       const { data: updateResult, error: playerError } = await supabase
         .from('players')
         .update({
@@ -239,13 +235,18 @@ export const useAuction = () => {
         .eq('status', 'unsold')
         .select();
 
-      if (playerError) throw playerError;
+      if (playerError) {
+        console.error('Player update error:', playerError);
+        throw playerError;
+      }
+
       if (!updateResult || updateResult.length === 0) {
         toast.error(`${player.name} has already been sold!`);
         return false;
       }
 
-      // Update team stats
+      console.log('✅ Player updated successfully');
+
       const updateData: any = {
         budget: team.budget - price,
         total_players: team.total_players + 1,
@@ -257,9 +258,17 @@ export const useAuction = () => {
         .update(updateData)
         .eq('id', teamId);
 
-      if (teamError) throw teamError;
+      if (teamError) {
+        console.error('Team update error:', teamError);
+        await supabase
+          .from('players')
+          .update({ status: 'unsold', sold_to: null, sold_price: null })
+          .eq('id', playerId);
+        throw teamError;
+      }
 
-      // Create auction log
+      console.log('✅ Team updated successfully');
+
       const { error: logError } = await supabase
         .from('auction_logs')
         .insert({
@@ -269,11 +278,19 @@ export const useAuction = () => {
           price: price,
         });
 
-      if (logError) console.error('Log error:', logError);
+      if (logError) {
+        console.error('Log insert error:', logError);
+        toast.error('Sale completed but log entry failed');
+      } else {
+        console.log('✅ Auction log created');
+      }
 
       const newBudget = team.budget - price;
       if (newBudget < 0) {
-        toast.error(`${team.team_name} is now OVER BUDGET by ${formatCurrency(Math.abs(newBudget))}!`);
+        toast.error(`${team.team_name} is now OVER BUDGET by ${formatCurrency(Math.abs(newBudget))}!`, {
+          duration: 5000,
+          icon: '⚠️',
+        });
       } else {
         toast.success(`${player.name} sold to ${team.team_name} for ${price} points!`);
       }
@@ -296,7 +313,12 @@ export const useAuction = () => {
         .eq('id', logId)
         .single();
 
-      if (logError) throw logError;
+      if (logError) {
+        console.error('Error fetching log:', logError);
+        toast.error('Failed to find sale record');
+        return false;
+      }
+      
       if (log.action !== 'sold') {
         toast.error('This sale has already been undone');
         return false;
@@ -314,15 +336,28 @@ export const useAuction = () => {
         .eq('id', log.team_id)
         .single();
 
-      if (playerError || teamError) throw new Error('Data not found');
+      if (playerError || teamError) {
+        console.error('Error fetching data:', { playerError, teamError });
+        toast.error('Player or team not found');
+        return false;
+      }
 
       let roleKey: keyof Team;
       switch (player.role) {
-        case 'Batsman': roleKey = 'batsmen'; break;
-        case 'Bowler': roleKey = 'bowlers'; break;
-        case 'All-rounder': roleKey = 'all_rounders'; break;
-        case 'Wicket-keeper': roleKey = 'wicket_keepers'; break;
-        default: roleKey = 'all_rounders';
+        case 'Batsman':
+          roleKey = 'batsmen';
+          break;
+        case 'Bowler':
+          roleKey = 'bowlers';
+          break;
+        case 'All-rounder':
+          roleKey = 'all_rounders';
+          break;
+        case 'Wicket-keeper':
+          roleKey = 'wicket_keepers';
+          break;
+        default:
+          roleKey = 'all_rounders';
       }
 
       await supabase
@@ -359,23 +394,23 @@ export const useAuction = () => {
   const getSoldPlayers = () => players.filter(p => p.status === 'sold');
   const getTeamPlayers = (teamId: string) => players.filter(p => p.sold_to === teamId);
 
-return {
-  players,
-  teams,
-  logs,
-  loading,
-  selectedPlayer,
-  setSelectedPlayer,
-  currentBid,
-  setCurrentBid,
-  auctionRound,
-  setAuctionRound,
-  sellPlayer,
-  undoSale,
-  getTeamById,
-  getUnsoldPlayers,
-  getSoldPlayers,
-  getTeamPlayers,
-  isConnected,  // Add this line
-};
+  return {
+    players,
+    teams,
+    logs,
+    loading,
+    selectedPlayer,
+    setSelectedPlayer,
+    currentBid,
+    setCurrentBid,
+    auctionRound,
+    setAuctionRound,
+    sellPlayer,
+    undoSale,
+    getTeamById,
+    getUnsoldPlayers,
+    getSoldPlayers,
+    getTeamPlayers,
+    isConnected,
+  };
 };
