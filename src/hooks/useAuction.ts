@@ -54,16 +54,16 @@ export const useAuction = () => {
       const [playersRes, teamsRes, logsRes] = await Promise.all([
         supabase.from('players').select('*').order('name'),
         supabase.from('teams').select('*').order('team_name'),
-        supabase.from('auction_logs').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('auction_logs').select('*').order('created_at', { ascending: false }).limit(100),
       ]);
 
       if (playersRes.error) throw playersRes.error;
       if (teamsRes.error) throw teamsRes.error;
       if (logsRes.error) throw logsRes.error;
 
-      console.log('Fetched players:', playersRes.data.length);
-      console.log('Fetched teams:', teamsRes.data.length);
-      console.log('Fetched logs:', logsRes.data.length);
+      console.log('✅ Fetched players:', playersRes.data.length);
+      console.log('✅ Fetched teams:', teamsRes.data.length);
+      console.log('✅ Fetched logs:', logsRes.data.length);
 
       setPlayers(playersRes.data);
       setTeams(teamsRes.data);
@@ -77,6 +77,7 @@ export const useAuction = () => {
   };
 
   const setupSubscriptions = () => {
+    // Clean up existing channels
     channelsRef.current.forEach(channel => {
       try {
         channel.unsubscribe();
@@ -84,17 +85,22 @@ export const useAuction = () => {
     });
     channelsRef.current = [];
 
+    // Subscribe to players table
     const playersChannel = supabase
       .channel(`players-channel-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'players' },
         (payload) => {
-          console.log('🔄 Players real-time update:', payload);
+          console.log('🔄 PLAYERS real-time update:', payload);
           if (payload.eventType === 'UPDATE') {
-            setPlayers(prev => 
-              prev.map(p => p.id === payload.new.id ? payload.new as Player : p)
-            );
+            setPlayers(prev => {
+              const updated = prev.map(p => 
+                p.id === payload.new.id ? { ...p, ...payload.new } as Player : p
+              );
+              console.log('✅ Players state updated, count:', updated.length);
+              return updated;
+            });
           }
           if (payload.eventType === 'INSERT') {
             setPlayers(prev => [...prev, payload.new as Player]);
@@ -105,17 +111,22 @@ export const useAuction = () => {
         console.log('Players channel status:', status);
       });
 
+    // Subscribe to teams table
     const teamsChannel = supabase
       .channel(`teams-channel-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'teams' },
         (payload) => {
-          console.log('🔄 Teams real-time update:', payload);
+          console.log('🔄 TEAMS real-time update:', payload);
           if (payload.eventType === 'UPDATE') {
-            setTeams(prev => 
-              prev.map(t => t.id === payload.new.id ? payload.new as Team : t)
-            );
+            setTeams(prev => {
+              const updated = prev.map(t => 
+                t.id === payload.new.id ? { ...t, ...payload.new } as Team : t
+              );
+              console.log('✅ Teams state updated');
+              return updated;
+            });
           }
         }
       )
@@ -123,19 +134,24 @@ export const useAuction = () => {
         console.log('Teams channel status:', status);
       });
 
+    // Subscribe to auction_logs table
     const logsChannel = supabase
       .channel(`logs-channel-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'auction_logs' },
         (payload) => {
-          console.log('🔄 Logs real-time update:', payload);
+          console.log('🔄 LOGS real-time update:', payload);
           if (payload.eventType === 'INSERT') {
-            setLogs(prev => [payload.new as AuctionLog, ...prev]);
+            setLogs(prev => {
+              const updated = [payload.new as AuctionLog, ...prev];
+              console.log('✅ Logs state updated, total:', updated.length);
+              return updated;
+            });
           }
           if (payload.eventType === 'UPDATE') {
             setLogs(prev => 
-              prev.map(l => l.id === payload.new.id ? payload.new as AuctionLog : l)
+              prev.map(l => l.id === payload.new.id ? { ...l, ...payload.new } as AuctionLog : l)
             );
           }
         }
