@@ -23,7 +23,7 @@ export const useAuth = () => {
       setLoading(true);
       
       if (role === 'admin') {
-        // ADMIN CREDENTIALS - Change these to your desired credentials
+        // ADMIN CREDENTIALS
         const ADMIN_USERNAME = 'admin';
         const ADMIN_PASSWORD = 'admin123';
         
@@ -41,22 +41,24 @@ export const useAuth = () => {
           throw new Error('Invalid admin credentials');
         }
       } else {
-        // Owner login - check against Supabase teams table
+        // OWNER LOGIN - Check against Supabase teams table
         const { data: teamData, error: teamError } = await supabase
           .from('teams')
-          .select('id, team_name, owner_name, email')
+          .select('id, team_name, owner_name, email, password_hash')
           .eq('email', email)
           .single();
 
         if (teamError || !teamData) {
+          console.error('Team fetch error:', teamError);
           throw new Error('Team not found. Please check your email.');
         }
 
-        // Check password (simple check for demo)
-        if (password !== 'owner123') {
+        // Check password against the stored password_hash
+        if (password !== teamData.password_hash) {
           throw new Error('Invalid password');
         }
 
+        // Create owner user object
         const ownerUser: User = {
           id: teamData.id,
           email: teamData.email,
