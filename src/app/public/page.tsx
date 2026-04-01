@@ -23,8 +23,8 @@ export default function PublicDashboard() {
     'HE Fighters': 'https://chat.whatsapp.com/JEdMUmupKd30sLdeGRWpSM?mode=gi_t',
     'Gully Master': 'https://chat.whatsapp.com/H6NEOnpKuNr73CsWTo6l4p?mode=gi_t',
     // Add more links as you get them
-    // '45 Blasters': 'your-whatsapp-link',
-    // 'Venom Knight Riders': 'your-whatsapp-link',
+    '45 Blasters': ' https://chat.whatsapp.com/EMEHhKZM1kpJKrtalW13EH?mode=gi_t',
+    'Venom Knight Riders': ' https://chat.whatsapp.com/KbLrt3tN1Hq9cOeog0TDfc?mode=gi_t',
     // "SKILLER'S": 'your-whatsapp-link',
     // 'Skull Crusher': 'your-whatsapp-link',
   };
@@ -91,10 +91,10 @@ export default function PublicDashboard() {
       <header className="bg-black/50 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-3xl md:text-4xl font-bold text-center bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-            Cricket Auction 2024 - Final Playing XI
+            EPL Auction 2026 - Final Playing XI
           </h1>
           <p className="text-center text-gray-400 mt-2">
-            Complete squad details with Icon Player, Owner/Captain, and Auction Players
+            Click on the team to view which team you are in.
           </p>
         </div>
       </header>
