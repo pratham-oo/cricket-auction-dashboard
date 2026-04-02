@@ -25,8 +25,8 @@ export default function PublicDashboard() {
     // Add more links as you get them
     '45 Blasters': ' https://chat.whatsapp.com/EMEHhKZM1kpJKrtalW13EH?mode=gi_t',
     'Venom Knight Riders': ' https://chat.whatsapp.com/KbLrt3tN1Hq9cOeog0TDfc?mode=gi_t',
-    // "SKILLER'S": 'your-whatsapp-link',
-    // 'Skull Crusher': 'your-whatsapp-link',
+    "SKILLER'S": ' https://chat.whatsapp.com/K2P97hDFjKXHU0GdmCG0LA?mode=gi_t',
+    'Skull Crusher': 'https://chat.whatsapp.com/FKzOrw6FetX6H0BGq4vgUo?mode=gi_t',
   };
 
   useEffect(() => {
