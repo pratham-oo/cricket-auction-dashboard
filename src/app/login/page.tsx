@@ -85,15 +85,29 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Public Results Link - No login required */}
-          <div className="mt-6 pt-4 border-t border-gray-800 text-center">
-            <a 
-              href="/public" 
-              target="_blank"
-              className="text-sm text-blue-400 hover:text-blue-300 underline inline-flex items-center gap-1"
-            >
-              📊 View Auction Results
-            </a>
+          {/* Links Container */}
+          <div className="mt-6 pt-4 border-t border-gray-800">
+            {/* Public Results Link */}
+            <div className="text-center mb-3">
+              <a 
+                href="/public" 
+                target="_blank"
+                className="text-sm text-blue-400 hover:text-blue-300 underline inline-flex items-center gap-1"
+              >
+                📊 View Auction Results
+              </a>
+            </div>
+            
+            {/* Match Schedule Link */}
+            <div className="text-center">
+              <a 
+                href="/schedule" 
+                target="_blank"
+                className="text-sm text-purple-400 hover:text-purple-300 underline inline-flex items-center gap-1"
+              >
+                🏏 View Match Schedule
+              </a>
+            </div>
           </div>
 
           {/* Credit Line */}
