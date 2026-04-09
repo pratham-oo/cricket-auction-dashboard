@@ -35,14 +35,14 @@ const matches = [
 ];
 
 // Helper component for match display
-function MatchCard({ team1, team2, isFinal = false }: { team1: string; team2: string; isFinal?: boolean }) {
+function MatchCard({ team1, team2 }: { team1: string; team2: string }) {
   const initial1 = teamInitials[team1];
   const initial2 = teamInitials[team2];
   const color1 = teamColors[team1] || 'from-gray-600 to-gray-400';
   const color2 = teamColors[team2] || 'from-gray-600 to-gray-400';
 
   return (
-    <div className={`flex items-center justify-between gap-1 p-2 rounded-lg ${isFinal ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/50' : 'bg-gray-800/50'}`}>
+    <div className={`flex items-center justify-between gap-1 p-2 rounded-lg bg-gray-800/50`}>
       <div className="flex items-center gap-1 flex-1 min-w-0">
         <div className={`w-7 h-7 rounded-full bg-gradient-to-r ${color1} flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0`}>
           {initial1}
@@ -63,12 +63,12 @@ function MatchCard({ team1, team2, isFinal = false }: { team1: string; team2: st
 }
 
 // Mobile card view for each round
-function MobileRoundCard({ round, match, isFinal }: { round: number; match: any; isFinal: boolean }) {
+function MobileRoundCard({ round, match }: { round: number; match: any }) {
   return (
-    <Card className={`mb-3 ${isFinal ? 'border-yellow-500/50' : ''}`}>
-      <CardHeader className={`p-3 ${isFinal ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20' : 'bg-gray-800/50'}`}>
+    <Card className="mb-3">
+      <CardHeader className="p-3 bg-gray-800/50">
         <CardTitle className="text-sm font-bold text-white text-center">
-          Round {round} {isFinal && <span className="text-yellow-400">⭐ FINAL</span>}
+          Round {round}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 space-y-3">
@@ -80,7 +80,6 @@ function MobileRoundCard({ round, match, isFinal }: { round: number; match: any;
           <MatchCard 
             team1={match.turf1.team1} 
             team2={match.turf1.team2}
-            isFinal={isFinal}
           />
         </div>
         
@@ -93,7 +92,6 @@ function MobileRoundCard({ round, match, isFinal }: { round: number; match: any;
             <MatchCard 
               team1={match.turf2.team1} 
               team2={match.turf2.team2}
-              isFinal={false}
             />
           ) : (
             <div className="flex items-center justify-center h-[52px] text-gray-500 text-xs bg-gray-800/30 rounded-lg">
@@ -151,14 +149,6 @@ export default function SchedulePage() {
         {/* Legend */}
         <div className="mb-4 p-2 bg-gray-800/50 rounded-lg flex flex-wrap justify-center gap-3 text-[10px] text-gray-400">
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-yellow-500/50 rounded"></div>
-            <span>Final Match</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-gray-700 rounded"></div>
-            <span>Regular Match</span>
-          </div>
-          <div className="flex items-center gap-1">
             <span>🏟️ Turf 1</span>
           </div>
           <div className="flex items-center gap-1">
@@ -184,43 +174,35 @@ export default function SchedulePage() {
               </div>
 
               {/* Rows */}
-              {matches.map((match) => {
-                const isFinal = match.round === 8;
-                return (
-                  <div key={match.round} className="grid grid-cols-3 gap-2 mb-2">
-                    <div className="flex items-center justify-center">
-                      <div className={`text-center font-bold text-white py-2 px-2 rounded-lg w-full text-xs ${
-                        isFinal ? 'bg-gradient-to-r from-yellow-600/30 to-orange-600/30 border border-yellow-500' : 'bg-gray-800/50'
-                      }`}>
-                        Round {match.round}
-                        {isFinal && <span className="ml-1 text-yellow-400 text-[10px]">⭐</span>}
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-900/30 rounded-lg p-1 border border-gray-800">
-                      <MatchCard 
-                        team1={match.turf1.team1} 
-                        team2={match.turf1.team2}
-                        isFinal={isFinal}
-                      />
-                    </div>
-
-                    <div className="bg-gray-900/30 rounded-lg p-1 border border-gray-800">
-                      {match.turf2 ? (
-                        <MatchCard 
-                          team1={match.turf2.team1} 
-                          team2={match.turf2.team2}
-                          isFinal={false}
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-[52px] text-gray-500 text-xs">
-                          No Match
-                        </div>
-                      )}
+              {matches.map((match) => (
+                <div key={match.round} className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="flex items-center justify-center">
+                    <div className="text-center font-bold text-white py-2 px-2 rounded-lg w-full text-xs bg-gray-800/50">
+                      Round {match.round}
                     </div>
                   </div>
-                );
-              })}
+
+                  <div className="bg-gray-900/30 rounded-lg p-1 border border-gray-800">
+                    <MatchCard 
+                      team1={match.turf1.team1} 
+                      team2={match.turf1.team2}
+                    />
+                  </div>
+
+                  <div className="bg-gray-900/30 rounded-lg p-1 border border-gray-800">
+                    {match.turf2 ? (
+                      <MatchCard 
+                        team1={match.turf2.team1} 
+                        team2={match.turf2.team2}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-[52px] text-gray-500 text-xs">
+                        No Match
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -228,24 +210,13 @@ export default function SchedulePage() {
         {/* Card View (Mobile) */}
         {viewMode === 'cards' && (
           <div className="md:hidden">
-            {matches.map((match) => {
-              const isFinal = match.round === 8;
-              return (
-                <MobileRoundCard 
-                  key={match.round}
-                  round={match.round}
-                  match={match}
-                  isFinal={isFinal}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* Table View on Desktop (always visible on large screens) */}
-        {viewMode === 'table' && (
-          <div className="hidden md:block">
-            {/* Already shown above */}
+            {matches.map((match) => (
+              <MobileRoundCard 
+                key={match.round}
+                round={match.round}
+                match={match}
+              />
+            ))}
           </div>
         )}
 
