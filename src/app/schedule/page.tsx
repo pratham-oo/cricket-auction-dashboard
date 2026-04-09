@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 
-// Team logos mapping (update with your actual logo URLs)
-const teamLogos: { [key: string]: string } = {
-  '45 Blasters': '/logos/45-blasters.png',
-  'HE Fighters': '/logos/he-fighters.png',
-  'Gully Master': '/logos/gully-master.png',
-  'Venom Knight Riders': '/logos/venom-knight-riders.png',
-  "SKILLER'S": '/logos/skillers.png',
-  'Skull Crusher': '/logos/skull-crusher.png',
+// Team initials mapping
+const teamInitials: { [key: string]: string } = {
+  '45 Blasters': '45B',
+  'HE Fighters': 'HEF',
+  'Gully Master': 'GM',
+  'Venom Knight Riders': 'VKR',
+  "SKILLER'S": 'SKL',
+  'Skull Crusher': 'SC',
 };
 
-// Fallback colors if logo not available
+// Team colors for visual distinction
 const teamColors: { [key: string]: string } = {
   '45 Blasters': 'from-blue-600 to-blue-400',
   'HE Fighters': 'from-red-600 to-red-400',
@@ -27,8 +26,8 @@ const matches = [
   { round: 1, turf1: { team1: 'Gully Master', team2: "SKILLER'S" }, turf2: { team1: 'HE Fighters', team2: 'Venom Knight Riders' } },
   { round: 2, turf1: { team1: '45 Blasters', team2: 'Skull Crusher' }, turf2: { team1: 'Gully Master', team2: 'Venom Knight Riders' } },
   { round: 3, turf1: { team1: '45 Blasters', team2: 'HE Fighters' }, turf2: { team1: "SKILLER'S", team2: 'Skull Crusher' } },
-  { round: 4, turf1: { team1: '45 Blasters', team2: 'Venom Knight Riders' }, turf2: { team1: 'HE Fighters', team2: "SKILLER'S" } },
-  { round: 5, turf1: { team1: 'Gully Master', team2: 'Skull Crusher' }, turf2: { team1: 'Venom Knight Riders', team2: "SKILLER'S" } },
+  { round: 4, turf1: { team1: 'Gully Master', team2: 'Skull Crusher' }, turf2: { team1: 'Venom Knight Riders', team2: "SKILLER'S" } },
+  { round: 5, turf1: { team1: '45 Blasters', team2: 'Venom Knight Riders' }, turf2: { team1: 'HE Fighters', team2: "SKILLER'S" } },
   { round: 6, turf1: { team1: 'HE Fighters', team2: 'Skull Crusher' }, turf2: { team1: '45 Blasters', team2: "SKILLER'S" } },
   { round: 7, turf1: { team1: 'Venom Knight Riders', team2: 'Skull Crusher' }, turf2: { team1: 'HE Fighters', team2: 'Gully Master' } },
   { round: 8, turf1: { team1: '45 Blasters', team2: 'Gully Master' }, turf2: null },
@@ -36,34 +35,26 @@ const matches = [
 
 // Helper component for match display
 function MatchCard({ team1, team2, isFinal = false }: { team1: string; team2: string; isFinal?: boolean }) {
-  const logo1 = teamLogos[team1];
-  const logo2 = teamLogos[team2];
+  const initial1 = teamInitials[team1];
+  const initial2 = teamInitials[team2];
   const color1 = teamColors[team1] || 'from-gray-600 to-gray-400';
   const color2 = teamColors[team2] || 'from-gray-600 to-gray-400';
 
   return (
-    <div className={`flex items-center justify-between gap-2 p-3 rounded-lg ${isFinal ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50' : 'bg-gray-800/50'}`}>
+    <div className={`flex items-center justify-between gap-2 p-2 rounded-lg ${isFinal ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/50' : 'bg-gray-800/50'}`}>
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${color1} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-          {logo1 ? (
-            <img src={logo1} alt={team1} className="w-6 h-6 rounded-full object-cover" />
-          ) : (
-            team1.charAt(0)
-          )}
+        <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${color1} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+          {initial1}
         </div>
-        <span className="text-white font-medium text-sm truncate">{team1}</span>
+        <span className="text-white font-medium text-xs truncate">{team1}</span>
       </div>
       
-      <div className="text-gray-400 font-bold text-sm flex-shrink-0">VS</div>
+      <div className="text-gray-400 font-bold text-xs flex-shrink-0">VS</div>
       
       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-        <span className="text-white font-medium text-sm truncate">{team2}</span>
-        <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${color2} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-          {logo2 ? (
-            <img src={logo2} alt={team2} className="w-6 h-6 rounded-full object-cover" />
-          ) : (
-            team2.charAt(0)
-          )}
+        <span className="text-white font-medium text-xs truncate">{team2}</span>
+        <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${color2} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+          {initial2}
         </div>
       </div>
     </div>
@@ -71,8 +62,6 @@ function MatchCard({ team1, team2, isFinal = false }: { team1: string; team2: st
 }
 
 export default function SchedulePage() {
-  const [showDetails, setShowDetails] = useState(false);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       {/* Header */}
@@ -110,38 +99,38 @@ export default function SchedulePage() {
 
         {/* Schedule Grid */}
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+          <div className="min-w-[700px]">
             {/* Table Header */}
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="text-center font-bold text-gray-300 py-2 px-4 bg-gray-800/50 rounded-lg">
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="text-center font-bold text-gray-300 py-2 px-3 bg-gray-800/50 rounded-lg text-sm">
                 ROUND
               </div>
-              <div className="text-center font-bold text-blue-400 py-2 px-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
+              <div className="text-center font-bold text-blue-400 py-2 px-3 bg-blue-500/10 rounded-lg border border-blue-500/30 text-sm">
                 🏟️ TURF 1
               </div>
-              <div className="text-center font-bold text-purple-400 py-2 px-4 bg-purple-500/10 rounded-lg border border-purple-500/30">
+              <div className="text-center font-bold text-purple-400 py-2 px-3 bg-purple-500/10 rounded-lg border border-purple-500/30 text-sm">
                 🏟️ TURF 2
               </div>
             </div>
 
             {/* Rows */}
-            {matches.map((match, index) => {
+            {matches.map((match) => {
               const isFinal = match.round === 8;
               return (
-                <div key={match.round} className="grid grid-cols-3 gap-4 mb-4">
+                <div key={match.round} className="grid grid-cols-3 gap-3 mb-3">
                   {/* Round Number */}
                   <div className="flex items-center justify-center">
-                    <div className={`text-center font-bold text-white py-2 px-4 rounded-lg w-full ${
+                    <div className={`text-center font-bold text-white py-2 px-3 rounded-lg w-full text-sm ${
                       isFinal ? 'bg-gradient-to-r from-yellow-600/30 to-orange-600/30 border border-yellow-500' : 'bg-gray-800/50'
                     }`}>
                       Round {match.round}
-                      {isFinal && <span className="ml-2 text-yellow-400 text-xs">⭐ FINAL</span>}
+                      {isFinal && <span className="ml-1 text-yellow-400 text-[10px]">⭐</span>}
                     </div>
                   </div>
 
                   {/* Turf 1 */}
                   <div className="bg-gray-900/30 rounded-lg p-2 border border-gray-800">
-                    <div className="text-xs text-blue-400 mb-2 text-center">🏟️ TURF 1</div>
+                    <div className="text-xs text-blue-400 mb-1 text-center">🏟️ TURF 1</div>
                     <MatchCard 
                       team1={match.turf1.team1} 
                       team2={match.turf1.team2}
@@ -151,7 +140,7 @@ export default function SchedulePage() {
 
                   {/* Turf 2 */}
                   <div className="bg-gray-900/30 rounded-lg p-2 border border-gray-800">
-                    <div className="text-xs text-purple-400 mb-2 text-center">🏟️ TURF 2</div>
+                    <div className="text-xs text-purple-400 mb-1 text-center">🏟️ TURF 2</div>
                     {match.turf2 ? (
                       <MatchCard 
                         team1={match.turf2.team1} 
@@ -159,7 +148,7 @@ export default function SchedulePage() {
                         isFinal={false}
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-[68px] text-gray-500 text-sm">
+                      <div className="flex items-center justify-center h-[52px] text-gray-500 text-xs">
                         No Match
                       </div>
                     )}
@@ -177,10 +166,10 @@ export default function SchedulePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {Object.keys(teamLogos).map((team) => (
+              {Object.keys(teamInitials).map((team) => (
                 <div key={team} className="flex flex-col items-center p-3 bg-gray-800/50 rounded-lg">
-                  <div className={`w-12 h-12 rounded-full bg-gradient-to-r ${teamColors[team]} flex items-center justify-center text-white font-bold text-lg`}>
-                    {team.charAt(0)}
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${teamColors[team]} flex items-center justify-center text-white font-bold text-sm`}>
+                    {teamInitials[team]}
                   </div>
                   <p className="text-white text-xs text-center mt-2">{team}</p>
                 </div>
